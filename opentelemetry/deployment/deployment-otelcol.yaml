@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector-deployment
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+  name: trusted-ca
+data: {}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+rules:
+- apiGroups: [""]
+  resources: ["pods", "namespaces"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+subjects:
+- kind: ServiceAccount
+  name: otel-collector-deployment
+  namespace: <OPENTELEMETRY_NAMESPACE>
+roleRef:
+  kind: ClusterRole
+  name: otel-collector
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: otlp-collector
+spec:
+  mode: deployment
+  serviceAccount: otel-collector-deployment
+  volumes:
+    - name: trusted-ca
+      configMap:
+        name: trusted-ca
+        items:
+          - key: ca-bundle.crt
+            path: tls-ca-bundle.pem
+  volumeMounts:
+    - name: trusted-ca
+      mountPath: /etc/pki/ca-trust/extracted/pem
+      readOnly: true
+  config: |
+    receivers:
+      jaeger:
+        protocols:
+          thrift_http:
+      opencensus:
+      otlp:
+        protocols:
+          grpc:
+      zipkin:
+    processors:
+      k8sattributes:
+    exporters:
+      otlp:
+        endpoint: "tempo-simplest-distributor:4317"
+        tls:
+          ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+    service:
+      pipelines:
+        traces:
+          receivers: [jaeger]
+          processors: [k8sattributes]
+          exporters: [otlp]
