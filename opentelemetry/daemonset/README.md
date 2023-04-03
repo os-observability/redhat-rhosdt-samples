@@ -20,7 +20,7 @@ The collector is configured with a receiver for Jaeger traces over the Thrift HT
 
 It also has a processor that adds Kubernetes attributes to the spans based on the node they originated from. This filtering is done to ensure that your collector only retrieves pods from the node where the collector is installed. It allows you to avoid keeping track of a long list of pods if you have a large cluster.
 
-Finally, the collector is configured with an exporter that sends traces to the tempo-simplest-distributor endpoint over the OTLP protocol. This exporter has TLS enabled and uses the `server.crt`, `client.crt`, and `client.key` files for authentication.
+Finally, the collector is configured with an exporter that sends traces to the tempo-simplest-distributor endpoint over the OTLP protocol. This exporter uses TLS to communicate.
 
 The `SecurityContextConstrains` object is required by OpenShift to allow the deployment of the daemonset. The `ClusterRole` and `ClusterRoleBinding` are [needed by the `k8sattributesprocessor`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor#role-based-access-control).
 
