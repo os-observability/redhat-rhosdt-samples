@@ -1,7 +1,13 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: otel-collector-example
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: otel-collector-deployment
+  namespace: otel-collector-example
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -9,12 +15,14 @@ metadata:
   labels:
     config.openshift.io/inject-trusted-cabundle: "true"
   name: trusted-ca
+  namespace: otel-collector-example
 data: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: otel-collector
+  namespace: otel-collector-example
 rules:
 - apiGroups: [""]
   resources: ["pods", "namespaces"]
@@ -27,7 +35,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: otel-collector-deployment
-  namespace: <OPENTELEMETRY_NAMESPACE>
+  namespace: otel-collector-example
 roleRef:
   kind: ClusterRole
   name: otel-collector
@@ -36,7 +44,8 @@ roleRef:
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
 metadata:
-  name: otlp-collector
+  name: otel
+  namespace: otel-collector-example
 spec:
   mode: deployment
   serviceAccount: otel-collector-deployment
@@ -55,14 +64,30 @@ spec:
     receivers:
       jaeger:
         protocols:
+          grpc:
+          thrift_binary:
+          thrift_compact:
           thrift_http:
       opencensus:
       otlp:
         protocols:
           grpc:
+          http:
       zipkin:
     processors:
       k8sattributes:
+      resourcedetection/env:
+        detectors: [env]
+        timeout: 2s
+      resourcedetection/openshift:
+        detectors: [openshift]
+        timeout: 2s
+        openshift:
+          address: "<OPENSHIFT API ADDRESS>"
+          token: "<OPENSHIFT TOKEN>"
+          tls:
+            insecure: false
+            ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     exporters:
       otlp:
         endpoint: "tempo-simplest-distributor:4317"
@@ -71,6 +96,6 @@ spec:
     service:
       pipelines:
         traces:
-          receivers: [jaeger]
-          processors: [k8sattributes]
+          receivers: [jaeger, opencensus, otlp, opencensus]
+          processors: [k8sattributes, resourcedetection/env, resourcedetection/openshift]
           exporters: [otlp]
