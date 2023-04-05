@@ -3,14 +3,13 @@
 Overall, this configuration sets up an OpenTelemetry collector deployed as a DaemonSet that receives Jaeger traces, adds Kubernetes attributes, and exports the traces to Tempo via OTLP.
 
 ## How to run
-1. Modify the namespace from the `otel-collector` `ClusterRoleBinding` from `daemonset-otelcol.yaml` to your namespace. Replace the `<OPENTELEMETRY_NAMESPACE>` string with the name of the desired namespace.
-1. Deploy the resources from the `daemonset-otelcol.yaml` manifest file:
+1. Deploy the resources from the `otelcol.yaml` manifest file:
     ```sh
     oc apply -f daemonset-otelcol.yaml
     ```
 1. Add the `SecurityContextConstraints` to the `ServiceAccount`:
     ```sh
-    oc adm policy add-scc-to-user -z otel-collector-daemonset daemonset-with-hostport
+    oc adm policy add-scc-to-user -z otel-collector-daemonset daemonset-with-hostport -n otel-collector-example
     ```
 
 ## Explanation
@@ -18,7 +17,9 @@ This example configuration defines an OpenTelemetry Collector in an OpenShift en
 
 The collector is configured with a receiver for Jaeger traces over the Thrift HTTP protocol, OpenCensus traces over the OpenCensus protocol, Zipkin traces over the Zipkin protocol and OTLP traces over the GRPC protocol.
 
-It also has a processor that adds Kubernetes attributes to the spans based on the node they originated from. This filtering is done to ensure that your collector only retrieves pods from the node where the collector is installed. It allows you to avoid keeping track of a long list of pods if you have a large cluster.
+It also has different processors:
+* [`k8sattributes`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor): it also has a processor that adds Kubernetes attributes to the spans based on the node they originated from. This filtering is done to ensure that your collector only retrieves pods from the node where the collector is installed. It allows you to avoid keeping track of a long list of pods if you have a large cluster.
+* [`resourcedetectionprocessor`]((https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor)): adds information detected from the host to the traces. This example enables two detectors: `env` (reads resource information from the `OTEL_RESOURCE_ATTRIBUTES` env variable) and `openshift` (reads from the OpenShift API to retrieve information).
 
 Finally, the collector is configured with an exporter that sends traces to the tempo-simplest-distributor endpoint over the OTLP protocol. This exporter uses TLS to communicate.
 

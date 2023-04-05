@@ -1,12 +1,51 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: otel-collector-example
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: otel-collector-daemonset
+  namespace: otel-collector-example
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+  name: trusted-ca
+  namespace: otel-collector-example
+data: {}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+  namespace: otel-collector-example
+rules:
+- apiGroups: [""]
+  resources: ["pods", "namespaces", "infrastructures"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+subjects:
+- kind: ServiceAccount
+  name: otel-collector-daemonset
+  namespace: otel-collector-example
+roleRef:
+  kind: ClusterRole
+  name: otel-collector
+  apiGroup: rbac.authorization.k8s.io
 ---
 kind: SecurityContextConstraints
 apiVersion: security.openshift.io/v1
 metadata:
   name: daemonset-with-hostport
+  namespace: otel-collector-example
   annotations:
     kubernetes.io/description: 'Allows DaemonSets to bind to a well-known host port'
 runAsUser:
@@ -21,43 +60,13 @@ allowHostPID: false
 allowPrivilegedContainer: false
 readOnlyRootFilesystem: false
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    config.openshift.io/inject-trusted-cabundle: "true"
-  name: trusted-ca
-data: {}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: otel-collector
-rules:
-- apiGroups: [""]
-  resources: ["pods", "namespaces"]
-  verbs: ["get", "watch", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: otel-collector
-subjects:
-- kind: ServiceAccount
-  name: otel-collector-daemonset
-  namespace: <OPENTELEMETRY_NAMESPACE>
-roleRef:
-  kind: ClusterRole
-  name: otel-collector
-  apiGroup: rbac.authorization.k8s.io
----
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
 metadata:
   name: otlp-collector
+  namespace: otel-collector-example
 spec:
   mode: daemonset
-  serviceAccount: otel-collector-daemonset
   hostNetwork: true
   env:
     - name: KUBE_NODE_NAME
@@ -65,6 +74,7 @@ spec:
         fieldRef:
           apiVersion: v1
           fieldPath: spec.nodeName
+  serviceAccount: otel-collector-daemonset
   volumes:
     - name: trusted-ca
       configMap:
@@ -80,24 +90,38 @@ spec:
     receivers:
       jaeger:
         protocols:
+          grpc:
+          thrift_binary:
+          thrift_compact:
           thrift_http:
       opencensus:
       otlp:
         protocols:
           grpc:
+          http:
       zipkin:
     processors:
       k8sattributes:
         filter:
           node_from_env_var: KUBE_NODE_NAME
+      resourcedetection/env:
+        detectors: [env]
+        timeout: 2s
+      resourcedetection/openshift:
+        detectors: [openshift]
+        timeout: 2s
+        openshift:
+          tls:
+            insecure: false
+            ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     exporters:
       otlp:
-        endpoint: "tempo-simplest-distributor:4317"
+        endpoint: "tempo-simplest-distributor.svc:4317"
         tls:
           ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     service:
       pipelines:
         traces:
-          receivers: [jaeger]
-          processors: [k8sattributes]
+          receivers: [jaeger, opencensus, otlp, opencensus]
+          processors: [k8sattributes, resourcedetection/env, resourcedetection/openshift]
           exporters: [otlp]
