@@ -3,7 +3,6 @@
 Overall, this configuration sets up an OpenTelemetry collector deployed as a Deployment that receives Jaeger, OTLP, OpenCensus and Zipkin traces, adds Kubernetes attributes, and exports the traces to Tempo via OTLP.
 
 ## How to run
-1. Modify the `<OPENSHIFT API ADDRESS>` and `<OPENSHIFT TOKEN>` values from the `resourcedetection/openshift` processor
 1. Deploy the resources from the `otelcol.yaml` manifest file:
     ```sh
     oc apply -f otelcol.yaml

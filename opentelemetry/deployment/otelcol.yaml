@@ -25,7 +25,7 @@ metadata:
   namespace: otel-collector-example
 rules:
 - apiGroups: [""]
-  resources: ["pods", "namespaces"]
+  resources: ["pods", "namespaces", "infrastructures"]
   verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -83,14 +83,12 @@ spec:
         detectors: [openshift]
         timeout: 2s
         openshift:
-          address: "<OPENSHIFT API ADDRESS>"
-          token: "<OPENSHIFT TOKEN>"
           tls:
             insecure: false
             ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     exporters:
       otlp:
-        endpoint: "tempo-simplest-distributor:4317"
+        endpoint: "tempo-simplest-distributor.svc:4317"
         tls:
           ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     service:
