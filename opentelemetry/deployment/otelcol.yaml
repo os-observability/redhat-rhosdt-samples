@@ -75,11 +75,15 @@ spec:
           http:
       zipkin:
     processors:
+      batch:
+        send_batch_size: 10000
+        timeout: 10s
       k8sattributes:
-      resourcedetection/env:
-        detectors: [env]
-        timeout: 2s
-      resourcedetection/openshift:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 50
+        spike_limit_percentage: 30
+      resourcedetection:
         detectors: [openshift]
         timeout: 2s
         openshift:
@@ -94,6 +98,6 @@ spec:
     service:
       pipelines:
         traces:
-          receivers: [jaeger, opencensus, otlp, opencensus]
-          processors: [k8sattributes, resourcedetection/env, resourcedetection/openshift]
+          receivers: [jaeger, opencensus, opencensus, otlp, zipkin]
+          processors: [batch, k8sattributes, memory_limiter, resourcedetection]
           exporters: [otlp]
