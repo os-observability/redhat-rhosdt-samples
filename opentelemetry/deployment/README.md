@@ -15,10 +15,8 @@ This example configuration defines an OpenTelemetry Collector in an OpenShift en
 The collector is configured with a receiver for Jaeger traces over the Thrift HTTP protocol, OpenCensus traces over the OpenCensus protocol, Zipkin traces over the Zipkin protocol and OTLP traces over the GRPC protocol.
 
 It also has different processors:
-* `k8sattributes`: adds Kubernetes attributes to the spans based on the node they originated from.
-* `resourcedetectionprocessor`: adds information detected from the host to the traces. This example enables two detectors: `env` (reads resource information from the `OTEL_RESOURCE_ATTRIBUTES` env variable) and `openshift` (reads from the OpenShift API to retrieve information).
-
-https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor
+* [`k8sattributes`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor): adds Kubernetes attributes to the spans based on the node they originated from.
+* [`resourcedetectionprocessor`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor): adds information detected from the host to the traces. This example enables two detectors: `env` (reads resource information from the `OTEL_RESOURCE_ATTRIBUTES` env variable) and `openshift` (reads from the OpenShift API to retrieve information).
 
 Finally, the collector is configured with an exporter that sends traces to the tempo-simplest-distributor endpoint over the OTLP protocol. This exporter has TLS enabled, using a CA file.
 
