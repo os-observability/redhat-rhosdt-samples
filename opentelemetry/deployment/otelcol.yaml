@@ -9,15 +9,6 @@ metadata:
   name: otel-collector-deployment
   namespace: otel-collector-example
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    config.openshift.io/inject-trusted-cabundle: "true"
-  name: trusted-ca
-  namespace: otel-collector-example
-data: {}
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -49,17 +40,6 @@ metadata:
 spec:
   mode: deployment
   serviceAccount: otel-collector-deployment
-  volumes:
-    - name: trusted-ca
-      configMap:
-        name: trusted-ca
-        items:
-          - key: ca-bundle.crt
-            path: tls-ca-bundle.pem
-  volumeMounts:
-    - name: trusted-ca
-      mountPath: /etc/pki/ca-trust/extracted/pem
-      readOnly: true
   config: |
     receivers:
       jaeger:
@@ -87,14 +67,9 @@ spec:
         detectors: [openshift]
         timeout: 2s
         openshift:
-          tls:
-            insecure: false
-            ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     exporters:
       otlp:
         endpoint: "tempo-simplest-distributor.svc:4317"
-        tls:
-          ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     service:
       pipelines:
         traces:
