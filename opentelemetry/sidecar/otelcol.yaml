@@ -9,15 +9,6 @@ metadata:
   name: otel-collector-sidecar
   namespace: otel-collector-example
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    config.openshift.io/inject-trusted-cabundle: "true"
-  name: trusted-ca
-  namespace: otel-collector-example
-data: {}
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -49,17 +40,6 @@ metadata:
 spec:
   mode: sidecar
   serviceAccount: otel-collector-sidecar
-  volumes:
-    - name: trusted-ca
-      configMap:
-        name: trusted-ca
-        items:
-          - key: ca-bundle.crt
-            path: tls-ca-bundle.pem
-  volumeMounts:
-    - name: trusted-ca
-      mountPath: /etc/pki/ca-trust/extracted/pem
-      readOnly: true
   config: |
     receivers:
       jaeger:
@@ -82,21 +62,16 @@ spec:
         check_interval: 1s
         limit_percentage: 50
         spike_limit_percentage: 30
+      k8sattributes:
       resourcedetection:
         detectors: [openshift]
         timeout: 2s
-        openshift:
-          tls:
-            insecure: false
-            ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     exporters:
       otlp:
         endpoint: "tempo-simplest-distributor.svc:4317"
-        tls:
-          ca_file: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     service:
       pipelines:
         traces:
           receivers: [jaeger, opencensus, otlp, zipkin]
-          processors: [batch, memory_limiter, resourcedetection]
+          processors: [memory_limiter, k8sattributes, resourcedetection, batch]
           exporters: [otlp]
