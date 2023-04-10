@@ -99,5 +99,5 @@ spec:
       pipelines:
         traces:
           receivers: [jaeger, opencensus, opencensus, otlp, zipkin]
-          processors: [batch, k8sattributes, memory_limiter, resourcedetection]
+          processors: [memory_limiter, k8sattributes, resourcedetection, batch]
           exporters: [otlp]
