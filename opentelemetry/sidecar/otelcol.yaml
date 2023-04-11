@@ -62,7 +62,6 @@ spec:
         check_interval: 1s
         limit_percentage: 50
         spike_limit_percentage: 30
-      k8sattributes:
       resourcedetection:
         detectors: [openshift]
         timeout: 2s
@@ -73,5 +72,5 @@ spec:
       pipelines:
         traces:
           receivers: [jaeger, opencensus, otlp, zipkin]
-          processors: [memory_limiter, k8sattributes, resourcedetection, batch]
+          processors: [memory_limiter, resourcedetection, batch]
           exporters: [otlp]
