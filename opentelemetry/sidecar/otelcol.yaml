@@ -3,35 +3,6 @@ kind: Project
 metadata:
   name: otel-collector-example
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: otel-collector-sidecar
-  namespace: otel-collector-example
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: otel-collector
-  namespace: otel-collector-example
-rules:
-- apiGroups: [""]
-  resources: ["pods", "namespaces", "infrastructures"]
-  verbs: ["get", "watch", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: otel-collector
-subjects:
-- kind: ServiceAccount
-  name: otel-collector-sidecar
-  namespace: otel-collector-example
-roleRef:
-  kind: ClusterRole
-  name: otel-collector
-  apiGroup: rbac.authorization.k8s.io
----
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
 metadata:
@@ -39,7 +10,6 @@ metadata:
   namespace: otel-collector-example
 spec:
   mode: sidecar
-  serviceAccount: otel-collector-sidecar
   config: |
     receivers:
       jaeger:
@@ -56,8 +26,6 @@ spec:
       zipkin:
     processors:
       batch:
-        send_batch_size: 10000
-        timeout: 10s
       memory_limiter:
         check_interval: 1s
         limit_percentage: 50
@@ -67,7 +35,9 @@ spec:
         timeout: 2s
     exporters:
       otlp:
-        endpoint: "tempo-simplest-distributor.svc:4317"
+        endpoint: "tempo-simplest-distributor:4317"
+        tls:
+          insecure: true
     service:
       pipelines:
         traces:
