@@ -91,6 +91,7 @@ apiVersion: tempo.grafana.com/v1alpha1
 kind:  TempoStack
 metadata:
   name: simplest
+  namespace: tempo-example
 spec:
   storage:
     secret:
