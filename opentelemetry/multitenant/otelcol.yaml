@@ -1,0 +1,77 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: otel-collector-example
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector-deployment
+  namespace: otel-collector-example
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+  namespace: otel-collector-example
+rules:
+- apiGroups: ["", "config.openshift.io"]
+  resources: ["pods", "namespaces", "infrastructures"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+subjects:
+- kind: ServiceAccount
+  name: otel-collector-deployment
+  namespace: otel-collector-example
+roleRef:
+  kind: ClusterRole
+  name: otel-collector
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel
+  namespace: otel-collector-example
+spec:
+  mode: deployment
+  serviceAccount: otel-collector-deployment
+  env:
+  - name: TENANT1
+    value: 1610b0c3-c509-4592-a256-a1871353dbfa
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+    extensions:
+      bearertokenauth:
+        filename: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    processors:
+      routing:
+        from_attribute: tenantId
+        attribute_source: x-scope-orgid
+        table:
+        - value: 1610b0c3-c509-4592-a256-a1871353dbfa
+          exporters: [otlp/tenant1]
+    exporters:
+      # sending data to Tempo
+      otlp/tenant1:
+        endpoint: tempo-simplest-gateway.tempo-example.svc.cluster.local:8090
+        auth:
+          authenticator: bearertokenauth
+        headers:
+          x-scope-orgid: 1610b0c3-c509-4592-a256-a1871353dbfa
+        tls:
+          ca_file: "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+    service:
+      extensions: [bearertokenauth]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [otlp/tenant1]
