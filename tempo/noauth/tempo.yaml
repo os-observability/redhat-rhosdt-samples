@@ -1,0 +1,33 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: tempo-example
+---
+# This secret is needed to indicate Tempo how to connect to the minio instance
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-test
+  namespace: tempo-example
+stringData:
+  endpoint: http://minio.minio.svc:9000
+  bucket: tempo
+  access_key_id: tempo
+  access_key_secret: supersecret
+type: Opaque
+---
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoStack
+metadata:
+  name: noauth
+spec:
+  storage:
+    secret:
+      name: minio-test
+      type: s3
+  storageSize: 1Gi
+  template:
+    queryFrontend:
+      jaegerQuery:
+        # Enable the Jaeger UI
+        enabled: true
