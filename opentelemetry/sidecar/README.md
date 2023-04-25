@@ -2,6 +2,8 @@
 
 Overall, this configuration sets up an OpenTelemetry collector deployed as a sidecar that receives Jaeger, OTLP, OpenCensus and Zipkin traces, adds Kubernetes attributes, and exports the traces to Tempo via OTLP.
 
+The collector is configured to run as a sidecar in the cluster. This means that each pod with the `sidecar.opentelemetry.io/inject: "true"` annotation will be injected with a sidecar container to treat the traces according to the receivers, processors and exporters.
+
 ## How to run
 1. Deploy the resources from the `otelcol.yaml` manifest file:
     ```sh
@@ -9,7 +11,8 @@ Overall, this configuration sets up an OpenTelemetry collector deployed as a sid
     ```
 2. Deploy your application using a service account
 3. Add permissions for the service account (replace `SERVICE ACCOUNT NAME` with the name of the service account used for your application).
-    ```yaml
+    ```sh
+    kubectl apply -f - <<EOF
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -32,18 +35,6 @@ Overall, this configuration sets up an OpenTelemetry collector deployed as a sid
     kind: ClusterRole
     name: otel-collector
     apiGroup: rbac.authorization.k8s.io
+    EOF
     ```
-
-
-## Explanation
-This example configuration defines an OpenTelemetry Collector in an OpenShift environment. The collector is configured to run as a sidecar in the cluster. This means that each pod with the `sidecar.opentelemetry.io/inject: "true"` annotation will be injected with a sidecar container to treat the traces according to the receivers, processors and exporters.
-
-The collector is configured with a receiver for Jaeger traces, OpenCensus traces over the OpenCensus protocol, Zipkin traces over the Zipkin protocol and OTLP traces over the GRPC protocol
-
-
-It also has different processors:
-* [`batch`](https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/batchprocessor): batching helps better compress the data and reduce the number of outgoing connections required to transmit the data.
-* [`memory_limiter`](https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/memorylimiterprocessor): prevents out of memory situations on the collector.
-* [`resourcedetectionr`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor): adds information detected from the host to the traces.
-
-Keep in mind that the sequence of the processors determines how the data is processed.
+    These resources are needed to make the `resourcedetection` work properly on OpenShift.

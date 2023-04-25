@@ -26,15 +26,23 @@ spec:
       zipkin:
     processors:
       batch:
+        # Batching helps better compress the data and reduce the number of outgoing
+        # connections required to transmit the data.
+        # https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/batchprocessor
       memory_limiter:
+        # Prevents out of memory situations on the collector
+        # https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/memorylimiterprocessor
         check_interval: 1s
         limit_percentage: 50
         spike_limit_percentage: 30
       resourcedetection:
+        # Adds information detected from the host to the traces
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor
         detectors: [openshift]
         timeout: 2s
     exporters:
       otlp:
+        # Export the traces to a Tempo instance
         endpoint: "tempo-simplest-distributor:4317"
         tls:
           insecure: true
@@ -42,5 +50,6 @@ spec:
       pipelines:
         traces:
           receivers: [jaeger, opencensus, otlp, zipkin]
+          # The sequence of the processors determines how the data is processed
           processors: [memory_limiter, resourcedetection, batch]
           exporters: [otlp]
