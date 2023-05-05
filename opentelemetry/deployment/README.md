@@ -11,6 +11,6 @@ It also has different processors:
 * [`batch`](https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/batchprocessor): batching helps better compress the data and reduce the number of outgoing connections required to transmit the data.
 * [`k8sattributes`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor): adds Kubernetes attributes to the spans based on the node they originated from.
 * [`memory_limiter`](https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/memorylimiterprocessor): prevents out of memory situations on the collector.
-* [`resourcedetectionr`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor): adds information detected from the host to the traces.
+* [`resourcedetection`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor): adds information detected from the host to the traces.
 
 Keep in mind that the sequence of the processors determines how the data is processed.
