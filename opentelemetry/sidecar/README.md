@@ -16,25 +16,25 @@ The collector is configured to run as a sidecar in the cluster. This means that 
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
-    name: otel-collector
-    namespace: otel-collector-example
+      name: otel-collector
+      namespace: otel-collector-example
     rules:
     - apiGroups: ["", "config.openshift.io"]
-    resources: ["pods", "namespaces", "infrastructures"]
-    verbs: ["get", "watch", "list"]
+      resources: ["pods", "namespaces", "infrastructures"]
+      verbs: ["get", "watch", "list"]
     ---
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
-    name: otel-collector
+      name: otel-collector
     subjects:
     - kind: ServiceAccount
-    name: <SERVICE ACCOUNT NAME>
-    namespace: otel-collector-example
+      name: otel-collector-deployment
+      namespace: otel-collector-example
     roleRef:
-    kind: ClusterRole
-    name: otel-collector
-    apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: otel-collector
+      apiGroup: rbac.authorization.k8s.io
     EOF
     ```
     These resources are needed to make the `resourcedetection` work properly on OpenShift.
