@@ -1,4 +1,4 @@
-# Deployment
+# Sidecar
 
 Overall, this configuration sets up an OpenTelemetry collector deployed as a sidecar that receives Jaeger, OTLP, OpenCensus and Zipkin traces, adds Kubernetes attributes, and exports the traces to Tempo via OTLP.
 
