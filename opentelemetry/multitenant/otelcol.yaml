@@ -6,9 +6,40 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: otel-collector-deployment
+  name: dev-collector
   namespace: otel-collector-example
 ---
+# ClusterRole needed to grant permissions to the service account to write traces
+# for the given tenant
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempostack-traces-write
+rules:
+  - apiGroups:
+      - 'tempo.grafana.com'
+    # Tenant name set in X-Scope-OrgID
+    resources:
+      - dev
+    resourceNames:
+      - traces
+    verbs:
+      - 'create'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tempostack-traces
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempostack-traces-write
+subjects:
+  - kind: ServiceAccount
+    name: dev-collector
+    namespace: otel-collector-example
+---
+# ClusterRole for the resourcedetection processor
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -16,62 +47,79 @@ metadata:
   namespace: otel-collector-example
 rules:
 - apiGroups: ["", "config.openshift.io"]
-  resources: ["pods", "namespaces", "infrastructures"]
+  resources: ["pods", "namespaces", "infrastructures", "infrastructures/status"]
   verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: otel-collector
-subjects:
-- kind: ServiceAccount
-  name: otel-collector-deployment
-  namespace: otel-collector-example
 roleRef:
   kind: ClusterRole
   name: otel-collector
   apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: dev-collector
+    namespace: otel-collector-example
 ---
 apiVersion: opentelemetry.io/v1alpha1
 kind: OpenTelemetryCollector
 metadata:
-  name: otel
+  name: multitenant-example
   namespace: otel-collector-example
 spec:
-  mode: deployment
-  serviceAccount: otel-collector-deployment
-  env:
-  - name: TENANT1
-    value: 1610b0c3-c509-4592-a256-a1871353dbfa
+  serviceAccount: dev-collector
   config: |
+    extensions:
+      bearertokenauth:
+        filename: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
     receivers:
       otlp:
         protocols:
           grpc:
           http:
-    extensions:
-      bearertokenauth:
-        filename: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      jaeger:
+        protocols:
+          thrift_binary:
+          thrift_compact:
+          thrift_http:
+          grpc:
+      opencensus:
+      zipkin:
+
     processors:
+      k8sattributes:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 50
+        spike_limit_percentage: 30
+      resourcedetection:
+        detectors: [openshift]
+
       routing:
-        from_attribute: tenantId
-        attribute_source: x-scope-orgid
+        from_attribute: X-Scope-OrgId
         table:
-        - value: 1610b0c3-c509-4592-a256-a1871353dbfa
-          exporters: [otlp/tenant1]
+        - value: dev
+          exporters:
+          - otlp/tenant1
+
     exporters:
-      # sending data to Tempo
       otlp/tenant1:
         endpoint: tempo-simplest-gateway.tempo-example.svc.cluster.local:8090
+        tls:
+          insecure: false
+          ca_file: "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
         auth:
           authenticator: bearertokenauth
         headers:
-          x-scope-orgid: 1610b0c3-c509-4592-a256-a1871353dbfa
-        tls:
-          ca_file: "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+          X-Scope-OrgID: "dev"
+
     service:
       extensions: [bearertokenauth]
       pipelines:
         traces:
-          receivers: [otlp]
+          receivers: [otlp, jaeger, opencensus, zipkin]
+          processors: [memory_limiter, k8sattributes, resourcedetection, routing]
           exporters: [otlp/tenant1]
