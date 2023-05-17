@@ -1,6 +1,6 @@
 # Tempo deployment
 
-This is an example about how to deploy a Tempo instance using the Tempo Operator. It doesn't have authorization nor multitenancy enabled.
+This is an example to deploy a Tempo instance using the Tempo Operator. It doesn't have authorization nor multitenancy enabled.
 
 ## How to run
 1. Create an Object storage instance using [OpenShift Data Foundation](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/).
@@ -14,5 +14,5 @@ This is an example about how to deploy a Tempo instance using the Tempo Operator
     ```
 1. Deploy the Tempo instance in the `tempo-example` OpenShift Project:
     ```sh
-        kubectl create -f tempo.yaml
+    kubectl create -f tempo.yaml
     ```
