@@ -3,7 +3,7 @@
 This is an example about how to deploy a Tempo instance using the Tempo Operator. It receives traces from two tenants (`prod` and `dev`).
 
 
-The Tempo deployment accepts traces from two tenants: `dev` and `prod`. They way to identify the tenants is through the `X-Scope-OrgID` OTLP header. When the `X-Scope-OrgID` header is set to `dev` in the trace, the tenant is `dev`. When the `X-Scope-OrgID` header is set to `prod` in the trace, the tenant is `prod`.
+The Tempo deployment accepts traces from two tenants: `dev` and `prod`. The way to identify the tenants is through the `X-Scope-OrgID` OTLP header. When the `X-Scope-OrgID` header is set to `dev` in the trace, the tenant is `dev`. When the `X-Scope-OrgID` header is set to `prod` in the trace, the tenant is `prod`.
 
 It also enables the creation of the Jaeger UI `.spec.template.queryFrontend.jaegerQuery.enabled` and the gateway (`.spec.template.gateway.enabled`). You can get the URL to the UI for a given tenant with the following command:
 
@@ -61,7 +61,7 @@ subjects:
 1. Create an Object storage instance using [OpenShift Data Foundation](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/).
 1. Create an Object Storage secret with keys as follows:
     ```console
-    kubectl create secret generic tempostack-odf \
+    kubectl create secret generic object-storage \
       --from-literal=bucket="<BUCKET_NAME>" \
       --from-literal=endpoint="https://s3.openshift-storage.svc" \
       --from-literal=access_key_id="<ACCESS_KEY_ID>" \
