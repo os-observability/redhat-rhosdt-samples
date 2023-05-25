@@ -56,6 +56,39 @@ subjects:
     name: tenant-sa
     namespace: other-namespace
 ```
+Now, you can use the `tenant-sa` `ServiceAccount` in your application or `OpenTelemetry Collector` instance to write traces for the `dev` tenant.
+
+To read the traces, you also need to create a `ClusterRoleBinding` to give `get` permissions to the `traces` resource from the `tempo.grafana.com` API group. In this example, we create a `ClusterRoleBinding` that gives read access to the traces from the `dev` and `prod` tenants to the authenticated users:
+```yaml
+# Allow the Jaeger UI to retrieve the data from the dev and prod tenants
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempostack-traces-reader
+rules:
+  - apiGroups:
+      - 'tempo.grafana.com'
+    resources:
+      - dev
+      - prod
+    resourceNames:
+      - traces
+    verbs:
+      - 'get'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tempostack-traces-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempostack-traces-reader
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: system:authenticated
+```
 
 ## How to run
 1. Create an Object storage instance using [OpenShift Data Foundation](https://access.redhat.com/documentation/en-us/red_hat_openshift_data_foundation/).
