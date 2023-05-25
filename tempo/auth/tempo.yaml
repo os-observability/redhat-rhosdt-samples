@@ -35,7 +35,7 @@ subjects:
 apiVersion: tempo.grafana.com/v1alpha1
 kind:  TempoStack
 metadata:
-  name: simplest
+  name: authentication-example
   namespace: tempo-example
 spec:
   storage:
