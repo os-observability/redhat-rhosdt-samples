@@ -1,0 +1,22 @@
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: tempo-example
+---
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoStack
+metadata:
+  name: simple
+  namespace: tempo-example
+spec:
+  storage:
+    secret:
+      # Name of the secret with the information to access the object storage
+      name: tempostack-odf
+      type: s3
+  storageSize: 1Gi
+  template:
+    queryFrontend:
+      jaegerQuery:
+        # Enable the Jaeger UI
+        enabled: true
