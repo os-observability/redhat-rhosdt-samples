@@ -107,7 +107,7 @@ spec:
 
     exporters:
       otlp/tenant1:
-        endpoint: tempo-simplest-gateway.tempo-example.svc.cluster.local:8090
+        endpoint: tempo-authentication-example-gateway.tempo-example.svc.cluster.local:8090
         tls:
           insecure: false
           ca_file: "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
