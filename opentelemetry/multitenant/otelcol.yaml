@@ -6,7 +6,7 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: dev-collector
+  name: otel-collector
   namespace: otel-collector-example
 ---
 # ClusterRole needed to grant permissions to the service account to write traces
@@ -21,6 +21,7 @@ rules:
     # Tenant name set in X-Scope-OrgID
     resources:
       - dev
+      - prod
     resourceNames:
       - traces
     verbs:
@@ -36,7 +37,7 @@ roleRef:
   name: tempostack-traces-write
 subjects:
   - kind: ServiceAccount
-    name: dev-collector
+    name: otel-collector
     namespace: otel-collector-example
 ---
 # ClusterRole for the resourcedetection processor
@@ -60,7 +61,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: dev-collector
+    name: otel-collector
     namespace: otel-collector-example
 ---
 apiVersion: opentelemetry.io/v1alpha1
@@ -69,7 +70,7 @@ metadata:
   name: multitenant-example
   namespace: otel-collector-example
 spec:
-  serviceAccount: dev-collector
+  serviceAccount: otel-collector
   config: |
     extensions:
       bearertokenauth:
@@ -91,22 +92,32 @@ spec:
 
     processors:
       k8sattributes:
+        # Allows automatic setting of spans, metrics and logs resource attributes with k8s metadata.
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor
       memory_limiter:
+        # Prevents out of memory situations on the collector
+        # https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/memorylimiterprocessor
         check_interval: 1s
         limit_percentage: 50
         spike_limit_percentage: 30
       resourcedetection:
+        # Adds information detected from the host to the traces
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor
         detectors: [openshift]
-
       routing:
+        # Routes logs, metrics or traces to specific exporters. In our case, based on the X-Scope-OrgId OTLP header
+        # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/routingprocessor
         from_attribute: X-Scope-OrgId
         table:
         - value: dev
           exporters:
-          - otlp/tenant1
-
+          - otlp/dev
+        - value: prod
+          exporters:
+          - otlp/prod
     exporters:
-      otlp/tenant1:
+      # Export the dev tenant traces to a Tempo instance
+      otlp/dev:
         endpoint: tempo-authentication-example-gateway.tempo-example.svc.cluster.local:8090
         tls:
           insecure: false
@@ -115,11 +126,20 @@ spec:
           authenticator: bearertokenauth
         headers:
           X-Scope-OrgID: "dev"
-
+      # Export the prod tenant traces to a Tempo instance
+      otlp/prod:
+        endpoint: tempo-authentication-example-gateway.tempo-example.svc.cluster.local:8090
+        tls:
+          insecure: false
+          ca_file: "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+        auth:
+          authenticator: bearertokenauth
+        headers:
+          X-Scope-OrgID: "prod"
     service:
       extensions: [bearertokenauth]
       pipelines:
         traces:
           receivers: [otlp, jaeger, opencensus, zipkin]
           processors: [memory_limiter, k8sattributes, resourcedetection, routing]
-          exporters: [otlp/tenant1]
+          exporters: [otlp/dev, otlp/prod]
