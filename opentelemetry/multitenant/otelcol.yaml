@@ -45,7 +45,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: otel-collector
-  namespace: otel-collector-example
 rules:
 - apiGroups: ["", "config.openshift.io"]
   resources: ["pods", "namespaces", "infrastructures", "infrastructures/status"]
