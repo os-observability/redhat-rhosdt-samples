@@ -13,10 +13,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: otel-collector
-  namespace: otel-collector-example
 rules:
-- apiGroups: ["", "config.openshift.io"]
-  resources: ["pods", "namespaces", "infrastructures"]
+- apiGroups: ["config.openshift.io"]
+  resources: ["infrastructures"]
   verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -71,6 +70,6 @@ spec:
     service:
       pipelines:
         traces:
-          receivers: [jaeger, opencensus, opencensus, otlp, zipkin]
+          receivers: [jaeger, opencensus, otlp, zipkin]
           processors: [memory_limiter, k8sattributes, resourcedetection, batch]
           exporters: [otlp]
