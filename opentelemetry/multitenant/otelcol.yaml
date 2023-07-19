@@ -46,6 +46,8 @@ kind: ClusterRole
 metadata:
   name: otel-collector
 rules:
+# Permissions for pods and namespaces resources are needed for the k8sattributesprocessor
+# Permissions for infrastructures and infrastructures/status are needed for resourcedetectionprocessor
 - apiGroups: ["", "config.openshift.io"]
   resources: ["pods", "namespaces", "infrastructures", "infrastructures/status"]
   verbs: ["get", "watch", "list"]
