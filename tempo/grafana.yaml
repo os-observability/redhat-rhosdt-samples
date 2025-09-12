@@ -1,0 +1,239 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.grafana: '{"kind":"OAuthRedirectReference","apiVersion":"v1","reference":{"kind":"Route","name":"grafana"}}'
+  name: grafana
+  namespace: grafana-tempo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: logging-grafana-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: grafana
+  namespace: grafana-tempo
+---
+apiVersion: v1
+data:
+  config.ini: |
+    [analytics]
+    check_for_updates = false
+    reporting_enabled = false
+    [auth]
+    disable_login_form = true
+    disable_signout_menu = true
+    [auth.basic]
+    enabled = false
+    [auth.proxy]
+    auto_sign_up = true
+    enabled = true
+    header_name = X-Forwarded-User
+    [paths]
+    data = /var/lib/grafana
+    logs = /var/lib/grafana/logs
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+    [security]
+    admin_user = system:does-not-exist
+    cookie_secure = true
+    [users]
+    viewers_can_edit = true
+    default_theme = light
+    çauto_assign_org = true
+    auto_assign_org_role = Admin
+    [log]
+    mode = console
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: grafana-tempo
+---
+apiVersion: v1
+data:
+  tempo.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Tempo (Production)
+        isDefault: true
+        type: tempo
+        access: proxy
+        url: https://${GATEWAY_ADDRESS}/api/traces/v1/prod/tempo/
+        jsonData:
+          tlsAuthWithCACert: true
+        secureJsonData:
+          tlsCACert: ${GATEWAY_SERVICE_CA}
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: grafana-tempo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: grafana-tls
+  labels:
+    app: grafana
+  name: grafana
+  namespace: grafana-tempo
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: https
+  - name: http-grafana
+    port: 3000
+    protocol: TCP
+    targetPort: http-grafana
+  selector:
+    app: grafana
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: grafana
+  name: grafana
+  namespace: grafana-tempo
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - args:
+        - -config=/etc/grafana/config.ini
+        env:
+        - name: GATEWAY_SERVICE_CA
+          valueFrom:
+            configMapKeyRef:
+              key: service-ca.crt
+              name: openshift-service-ca.crt
+        - name: GATEWAY_ADDRESS
+          value: tempo-simplest-gateway.grafana-tempo.svc:8080
+        - name: GF_SECURITY_ADMIN_USER
+          value: kube:admin
+        image: docker.io/grafana/grafana:10.4.19
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: 3000
+          timeoutSeconds: 1
+        name: grafana
+        ports:
+        - containerPort: 3000
+          name: http-grafana
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /robots.txt
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /etc/grafana
+          name: grafana-config
+        - mountPath: /var/lib/grafana
+          name: grafana
+        - mountPath: /etc/grafana/provisioning/datasources
+          name: grafana-datasources
+      - args:
+        - -provider=openshift
+        - -https-address=:8443
+        - -http-address=
+        - -upstream=http://localhost:3000
+        - -tls-cert=/etc/tls/private/tls.crt
+        - -tls-key=/etc/tls/private/tls.key
+        - -client-id=system:serviceaccount:grafana-tempo:grafana
+        - -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+        - -cookie-secret=ZXhhbXBsZS1jb29raWUtc2VjcmV0enp6
+        - -cookie-expire=24h
+        - -skip-provider-button
+        - -scope=user:info user:check-access user:list-projects
+        - -pass-access-token
+        - -pass-basic-auth=false
+        env:
+        - name: HTTP_PROXY
+        - name: HTTPS_PROXY
+        - name: NO_PROXY
+        image: quay.io/openshift/origin-oauth-proxy:4.10
+        imagePullPolicy: IfNotPresent
+        name: grafana-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /oauth/healthz
+            port: https
+            scheme: HTTPS
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 1m
+            memory: 20Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/tls/private
+          name: secret-grafana-tls
+      serviceAccountName: grafana
+      volumes:
+      - configMap:
+          name: grafana-config
+        name: grafana-config
+      - name: secret-grafana-tls
+        secret:
+          defaultMode: 420
+          secretName: grafana-tls
+      - configMap:
+          name: grafana-datasources
+        name: grafana-datasources
+      - emptyDir: {}
+        name: grafana
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: grafana
+  namespace: grafana-tempo
+spec:
+  port:
+    targetPort: https
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: reencrypt
+  to:
+    kind: Service
+    name: grafana
+    weight: 100
+  wildcardPolicy: None
