@@ -45,7 +45,7 @@ data:
     [users]
     viewers_can_edit = true
     default_theme = light
-    çauto_assign_org = true
+    auto_assign_org = true
     auto_assign_org_role = Admin
     [log]
     mode = console
