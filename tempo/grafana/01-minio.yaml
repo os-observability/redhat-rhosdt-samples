@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio
+  namespace: grafana-tempo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio
+  namespace: grafana-tempo
+stringData:
+  # Credenciales del bucket que consume Tempo
+  endpoint: http://minio.grafana-tempo.svc:9000
+  bucket: tempo
+  access_key_id: tempo
+  access_key_secret: supersecret
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: grafana-tempo
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      initContainers:
+        - name: create-bucket
+          image: docker.io/minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /storage/tempo
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+      containers:
+        - name: minio
+          image: docker.io/minio/minio:latest
+          args:
+            - server
+            - /storage
+            - --console-address
+            - :9001
+          env:
+            - name: MINIO_ROOT_USER
+              value: tempo
+            - name: MINIO_ROOT_PASSWORD
+              value: supersecret
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9001
+              name: console
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: minio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: grafana-tempo
+spec:
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001

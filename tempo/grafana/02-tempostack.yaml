@@ -1,0 +1,33 @@
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoStack
+metadata:
+  name: simplest
+  namespace: grafana-tempo
+spec:
+  storage:
+    secret:
+      name: minio
+      type: s3
+  storageSize: 512Mi
+  resources:
+    total:
+      limits:
+        # The operator splits this total across every component (compactor,
+        # distributor, ingester, querier, query-frontend x3 containers,
+        # gateway). With 1-2Gi total each container ends up with ~40 MiB and
+        # the query-frontend tempo container OOMKills (exit 137) in a loop,
+        # leaving the gateway with no endpoints -> 502 from Grafana. 8Gi is
+        # the minimum that keeps every component stable on this CRC profile.
+        memory: 8Gi
+        cpu: "4"
+  template:
+    gateway:
+      enabled: true
+    queryFrontend:
+      jaegerQuery:
+        enabled: true
+  tenants:
+    mode: openshift
+    authentication:
+      - tenantName: prod
+        tenantId: "1610b0c3-c509-4592-a256-a1871353dbfa"
